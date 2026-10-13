@@ -1,7 +1,7 @@
 # LLM clients
 ollama==0.6.2
 # anthropic==0.40.0
-# jopenai==1.58.1
+# openai==1.58.1
 
 # API framework (for building your own API around the LLM)
 fastapi==0.141.1
@@ -12,9 +12,14 @@ pydantic==2.13.5
 pydantic-settings==2.15.0
 
 # HTTP requests (if calling APIs manually)
-requests== 2.34.2
+requests==2.34.2
 httpx==0.28.1
+
+# Database libraries
+alembic==1.20.0
+asyncpg==0.31.0
+greenlet==3.5.6
+SQLAlchemy==2.1.1
 
 # Environment variables (API keys, config)
 python-dotenv==1.2.3
-chromadb==1.5.9

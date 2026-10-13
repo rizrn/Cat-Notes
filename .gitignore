@@ -1,0 +1,8 @@
+*.txt
+!requirements.txt
+.venv/
+.vscode/
+CLAUDE.md
+__pycache__
+.ruff_cache
+.env
