@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.errors import register_exception_handlers
 from app.middleware import add_process_time, add_request_id, log_requests
 from app.routers.notes import router as notes_router
 
@@ -28,3 +29,5 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-API-Key", "X-Request-ID"],
     expose_headers=["X-Request-ID", "X-Process-Time"],
 )
+
+register_exception_handlers(app)

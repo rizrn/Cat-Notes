@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Callable
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from app.errors import error_body
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,8 +48,11 @@ async def log_requests(
         response = await call_next(request)
     except Exception:
         logger.exception("%s %s %s -> 500", request_id, method, path)
-        return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
-    
+        return JSONResponse(
+            error_body(request, "internal_server_error", "Internal Server Error"),
+            status_code=500,
+        )
+
     status = response.status_code
     duration = response.headers.get("X-Process-Time")
 

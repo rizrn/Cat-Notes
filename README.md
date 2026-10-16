@@ -74,8 +74,38 @@ Interactive docs are available at `http://localhost:8000/docs` while the server 
 
 | Status | When |
 |---|---|
-| `404 Not Found` | No note exists with that `note_id` |
+| `404 Not Found` | No note exists with that `note_id`, or the path doesn't exist |
+| `405 Method Not Allowed` | The path exists but doesn't support that method (e.g. `PUT /notes/1`) |
 | `422 Unprocessable Content` | Invalid body (missing field, wrong length, `null` in a `PATCH`) or a non-integer `note_id` |
+| `500 Internal Server Error` | Unexpected server error. Details are logged server-side, not returned |
+
+Every error uses the same format. `request_id` matches the `X-Request-ID` response header:
+
+```json
+{
+  "error": {
+    "code": "internal_server_error",
+    "message": "Internal Server Error",
+    "request_id": "18aec115-1157-42d1-a6f2-0e849ad8e3f5"
+  }
+}
+```
+
+For `422` errors, a `details` list contains a `field` and `message` for each problem:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Invalid request",
+    "request_id": "3f2a9c1e-58cc-4372-a567-0e02b2c3d479",
+    "details": [
+      {"field": "title", "message": "String should have at least 1 character"},
+      {"field": "author", "message": "Field required"}
+    ]
+  }
+}
+```
 
 ### Example
 
@@ -100,11 +130,13 @@ curl -X POST http://localhost:8000/notes \
 ```
 notes-assistant/
 ├── app/
-│   ├── main.py            # FastAPI app and router includes
+│   ├── main.py            # FastAPI app, middleware, error handlers, routers
 │   ├── config.py          # Settings loaded from .env (pydantic-settings)
 │   ├── database.py        # Async engine, session factory, get_db dependency
 │   ├── models.py          # SQLAlchemy ORM models
 │   ├── schemas.py         # Pydantic request/response models
+│   ├── middleware.py      # Request ID, logging, and timing middleware
+│   ├── errors.py          # Exception handlers and error response format
 │   └── routers/
 │       └── notes.py       # CRUD endpoints for notes
 ├── alembic/               # Migration scripts
