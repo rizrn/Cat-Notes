@@ -1,8 +1,12 @@
+import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 async def add_process_time(
@@ -29,4 +33,23 @@ async def add_request_id(
     response = await call_next(request)
 
     response.headers[field] = request_id
+    return response
+
+
+async def log_requests(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    method = request.method
+    path = request.url.path
+    request_id = request.state.request_id
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("%s %s %s -> 500", request_id, method, path)
+        return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+    
+    status = response.status_code
+    duration = response.headers.get("X-Process-Time")
+
+    logger.info("%s %s %s → %s in %ss", request_id, method, path, status, duration)
     return response
