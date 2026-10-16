@@ -30,6 +30,7 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     details: list[dict[str, str]] = []
+    # To not drop WWW-Authenticate header from auth.py
     errors = exc.errors()
     for error in errors:
         loc = error["loc"]

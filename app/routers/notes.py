@@ -4,11 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import require_api_key
 from app.database import get_db
 from app.models import Note
 from app.schemas import NoteCreate, NoteRead, NoteUpdate
 
-router = APIRouter(prefix="/notes", tags=["notes"])
+router = APIRouter(
+    prefix="/notes",
+    tags=["notes"],
+    dependencies=[Depends(require_api_key)],
+)
 
 db_session = Annotated[AsyncSession, Depends(get_db)]
 

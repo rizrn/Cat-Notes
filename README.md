@@ -6,6 +6,7 @@ A simplified AI-powered note-taking API with customizable cat references.
 
 - [X] API-based Note taking
 - [X] PostgreSQL integration to keep track of your notes
+- [X] API-key authentication, request logging, and consistent error responses
 - [ ] AI-powered summaries
 - [ ] Cats! :heart_eyes_cat:
 
@@ -19,8 +20,12 @@ To run this project (commands for PowerShell or bash):
 ```bash
 # 1. Create your local config
 cp .env.example .env              # Windows cmd: copy .env.example .env
-# Then edit .env: set POSTGRES_PASSWORD, and use the user "postgres"
-# with that same password in DATABASE_URL
+# Then edit .env:
+#   - set POSTGRES_PASSWORD, and use the user "postgres" with that
+#     same password in DATABASE_URL
+#   - set API_KEY (required): clients send this in the X-API-Key header
+#   - CORS_ORIGINS lists the front-end origins allowed to call the API,
+#     as a JSON list, e.g. ["http://localhost:3000"]
 
 # 2. Start Postgres
 docker compose up -d
@@ -58,6 +63,22 @@ Interactive docs are available at `http://localhost:8000/docs` while the server 
 | `PATCH` | `/notes/{note_id}` | Update some fields of a note | `200 OK` |
 | `DELETE` | `/notes/{note_id}` | Delete a note | `204 No Content` |
 
+### Authentication
+
+All `/notes` routes require an `X-API-Key` header matching `API_KEY` in your `.env`:
+
+```
+X-API-Key: <your API_KEY>
+```
+
+In `/docs`, click **Authorize** and enter the key once; it's then sent with every request. `/docs` and `/openapi.json` are public.
+
+### Response headers
+
+Every response includes:
+- `X-Request-ID`: a unique ID for the request, also included in error bodies and server logs. If the client sends an `X-Request-ID`, it is reused.
+- `X-Process-Time`: how long the server took to handle the request, in seconds.
+
 ### Note fields
 
 | Field | Type | Rules |
@@ -74,6 +95,7 @@ Interactive docs are available at `http://localhost:8000/docs` while the server 
 
 | Status | When |
 |---|---|
+| `401 Unauthorized` | Missing or invalid X-API-Key header |
 | `404 Not Found` | No note exists with that `note_id`, or the path doesn't exist |
 | `405 Method Not Allowed` | The path exists but doesn't support that method (e.g. `PUT /notes/1`) |
 | `422 Unprocessable Content` | Invalid body (missing field, wrong length, `null` in a `PATCH`) or a non-integer `note_id` |
@@ -112,6 +134,7 @@ For `422` errors, a `details` list contains a `field` and `message` for each pro
 ```bash
 curl -X POST http://localhost:8000/notes \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: <your API_KEY>" \
   -d '{"title": "Photosynthesis", "content": "Plants convert light into chemical energy.", "author": "John"}'
 ```
 
@@ -137,6 +160,7 @@ notes-assistant/
 │   ├── schemas.py         # Pydantic request/response models
 │   ├── middleware.py      # Request ID, logging, and timing middleware
 │   ├── errors.py          # Exception handlers and error response format
+│   ├── auth.py            # API key dependency
 │   └── routers/
 │       └── notes.py       # CRUD endpoints for notes
 ├── alembic/               # Migration scripts
@@ -149,7 +173,7 @@ notes-assistant/
 ## Roadmap
 
 - [X] **REST + PostgreSQL** — CRUD for notes, Pydantic schemas, Alembic migrations
-- [ ] **Middleware** — request ID, timing (`X-Process-Time`), logging, CORS,
+- [X] **Middleware** — request ID, timing (`X-Process-Time`), logging, CORS,
   consistent error responses, API-key auth
 - [ ] **AI endpoints** — `POST /notes/{id}/summary`, `POST /notes/{id}/quiz`
   (JSON output validated with Pydantic)
