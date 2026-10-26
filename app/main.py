@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.errors import register_exception_handlers
 from app.middleware import add_process_time, add_request_id, log_requests
+from app.routers.ai import router as ai_router
 from app.routers.notes import router as notes_router
 
 # uvicorn app.main:app --reload
@@ -17,6 +18,7 @@ logging.basicConfig(
 
 app = FastAPI()
 app.include_router(notes_router)
+app.include_router(ai_router)
 
 app.middleware("http")(add_process_time)
 app.middleware("http")(log_requests)

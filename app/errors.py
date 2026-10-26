@@ -6,6 +6,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.services.llm import LLMUnavailableError
+
 
 def error_body(
     request: Request,
@@ -37,10 +39,7 @@ async def validation_exception_handler(
         message = error["msg"]
         field = ".".join(str(part) for part in loc[1:])
 
-        details.append({
-            "field": field,
-            "message": message
-        })
+        details.append({"field": field, "message": message})
 
     return JSONResponse(
         error_body(request, "validation_error", "Invalid request", details),
@@ -59,6 +58,20 @@ async def http_exception_handler(
     )
 
 
+async def llm_exception_handler(
+    request: Request, exc: LLMUnavailableError
+) -> JSONResponse:
+    return JSONResponse(
+        error_body(
+            request,
+            "llm_unavailable",
+            "The AI service is unavailable. Please try again later.",
+        ),
+        status_code=503,
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
-    app.add_exception_handler(StarletteHTTPException, http_exception_handler) # pyright: ignore[reportArgumentType]
-    app.add_exception_handler(RequestValidationError, validation_exception_handler) # pyright: ignore[reportArgumentType]
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # pyright: ignore[reportArgumentType]
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)  # pyright: ignore[reportArgumentType]
+    app.add_exception_handler(LLMUnavailableError, llm_exception_handler) # pyright: ignore[reportArgumentType]

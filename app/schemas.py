@@ -22,3 +22,7 @@ class NoteRead(BaseModel):
     content: str
     author: str
     created_at: datetime
+
+class SummaryRead(BaseModel):
+    note_id: int
+    summary:str
