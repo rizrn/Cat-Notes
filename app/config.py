@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str
     api_key: str
     ollama_host: str = "http://localhost:11434"
-    llm_model:str = "mistral"
+    llm_model: str = "mistral"
 
 
-settings = Settings() # pyright: ignore[reportCallIssue]
+settings = Settings()  # pyright: ignore[reportCallIssue]

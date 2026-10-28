@@ -1,11 +1,8 @@
-from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_api_key
-from app.database import get_db
+from app.database import DbSession
 from app.models import Note
 from app.schemas import NoteCreate, NoteRead, NoteUpdate
 
@@ -15,11 +12,9 @@ router = APIRouter(
     dependencies=[Depends(require_api_key)],
 )
 
-db_session = Annotated[AsyncSession, Depends(get_db)]
-
 
 @router.post("", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
-async def create_note(payload: NoteCreate, db: db_session) -> Note:
+async def create_note(payload: NoteCreate, db: DbSession) -> Note:
     new_note = Note(**payload.model_dump())
 
     db.add(new_note)
@@ -29,13 +24,13 @@ async def create_note(payload: NoteCreate, db: db_session) -> Note:
 
 
 @router.get("", response_model=list[NoteRead], status_code=status.HTTP_200_OK)
-async def get_notes(db: db_session) -> list[Note]:
+async def get_notes(db: DbSession) -> list[Note]:
     result = await db.scalars(select(Note))
     return list(result)
 
 
 @router.get("/{note_id}", response_model=NoteRead, status_code=status.HTTP_200_OK)
-async def get_note(note_id: int, db: db_session) -> Note:
+async def get_note(note_id: int, db: DbSession) -> Note:
     note = await db.get(Note, note_id)
     if note is None:
         raise HTTPException(
@@ -47,7 +42,7 @@ async def get_note(note_id: int, db: db_session) -> Note:
 
 
 @router.patch("/{note_id}", response_model=NoteRead, status_code=status.HTTP_200_OK)
-async def patch_note(note_id: int, payload: NoteUpdate, db: db_session) -> Note:
+async def patch_note(note_id: int, payload: NoteUpdate, db: DbSession) -> Note:
     note = await db.get(Note, note_id)
     if note is None:
         raise HTTPException(
@@ -71,7 +66,7 @@ async def patch_note(note_id: int, payload: NoteUpdate, db: db_session) -> Note:
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_note(note_id: int, db: db_session) -> None:
+async def delete_note(note_id: int, db: DbSession) -> None:
     note = await db.get(Note, note_id)
     if note is None:
         raise HTTPException(

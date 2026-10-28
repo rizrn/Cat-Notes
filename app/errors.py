@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.services.llm import LLMUnavailableError
+from app.services.llm import LLMBadResponseError, LLMUnavailableError
 
 
 def error_body(
@@ -32,7 +32,6 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     details: list[dict[str, str]] = []
-    # To not drop WWW-Authenticate header from auth.py
     errors = exc.errors()
     for error in errors:
         loc = error["loc"]
@@ -54,11 +53,11 @@ async def http_exception_handler(
     return JSONResponse(
         error_body(request, code, str(exc.detail)),
         status_code=exc.status_code,
-        headers=exc.headers,
+        headers=exc.headers,  # To not drop WWW-Authenticate header from auth.py
     )
 
 
-async def llm_exception_handler(
+async def unavailable_llm_exception_handler(
     request: Request, exc: LLMUnavailableError
 ) -> JSONResponse:
     return JSONResponse(
@@ -71,7 +70,21 @@ async def llm_exception_handler(
     )
 
 
+async def bad_llm_response_exception_handler(
+    request: Request, exc: LLMBadResponseError
+) -> JSONResponse:
+    return JSONResponse(
+        error_body(
+            request,
+            "llm_bad_response",
+            "The AI service gave an unreadable response. Please try again later.",
+        ),
+        status_code=502,
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # pyright: ignore[reportArgumentType]
     app.add_exception_handler(RequestValidationError, validation_exception_handler)  # pyright: ignore[reportArgumentType]
-    app.add_exception_handler(LLMUnavailableError, llm_exception_handler) # pyright: ignore[reportArgumentType]
+    app.add_exception_handler(LLMUnavailableError, unavailable_llm_exception_handler)  # pyright: ignore[reportArgumentType]
+    app.add_exception_handler(LLMBadResponseError, bad_llm_response_exception_handler)  # pyright: ignore[reportArgumentType]

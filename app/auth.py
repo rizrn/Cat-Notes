@@ -13,8 +13,7 @@ async def require_api_key(
     header: Annotated[str | None, Security(api_key_header)],
 ) -> None:
     api_key = settings.api_key
-    if header is None or not secrets.compare_digest(
-        header.encode(), api_key.encode()):
+    if header is None or not secrets.compare_digest(header.encode(), api_key.encode()):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",

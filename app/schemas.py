@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.services.llm import QuizQuestion
+
 
 class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -23,6 +25,12 @@ class NoteRead(BaseModel):
     author: str
     created_at: datetime
 
+
 class SummaryRead(BaseModel):
     note_id: int
-    summary:str
+    summary: str
+
+
+class QuizRead(BaseModel):
+    note_id: int
+    questions: list[QuizQuestion]
