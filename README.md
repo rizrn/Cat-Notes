@@ -8,6 +8,8 @@ A simplified AI-powered note-taking API with customizable cat references.
 - [X] PostgreSQL integration to keep track of your notes
 - [X] API-key authentication, request logging, and consistent error responses
 - [X] AI-powered summaries
+- [X] AI-generated quizzes
+- [X] Ask questions across all your notes
 - [ ] Cats! :heart_eyes_cat:
 
 ## Quick start
@@ -15,7 +17,8 @@ A simplified AI-powered note-taking API with customizable cat references.
 Prerequisites:
 - Python 3.12
 - Docker Desktop
-- [Ollama](https://ollama.com/download), with the model downloaded: `ollama pull mistral`
+- [Ollama](https://ollama.com/download), with both models downloaded:
+  `ollama pull mistral` and `ollama pull nomic-embed-text`
 
 To run this project (commands for PowerShell or bash):
 ```bash
@@ -27,6 +30,7 @@ cp .env.example .env              # Windows cmd: copy .env.example .env
 #   - set API_KEY (required): clients send this in the X-API-Key header
 #   - CORS_ORIGINS lists the front-end origins allowed to call the API,
 #     as a JSON list, e.g. ["http://localhost:3000"]
+#   - OLLAMA_HOST, LLM_MODEL and EMBED_MODEL have working defaults
 
 # 2. Start Postgres
 docker compose up -d
@@ -39,6 +43,8 @@ pip install -r requirements.txt
 
 # 4. Create the database tables and start the API
 alembic upgrade head
+# If you have notes from before RAG was added, index them once (Ollama must be running):
+python -m scripts.backfill_chunks
 uvicorn app.main:app --reload
 ```
 
@@ -46,7 +52,7 @@ uvicorn app.main:app --reload
 
 This is a Python project that uses the following tech stack:
 - Docker
-- PostgreSQL
+- PostgreSQL with pgvector
 - FastAPI
 - Pydantic
 - SQLAlchemy with asyncpg, Alembic
@@ -65,10 +71,12 @@ Interactive docs are available at `http://localhost:8000/docs` while the server 
 | `DELETE` | `/notes/{note_id}` | Delete a note | `204 No Content` |
 | `POST` | `/notes/{note_id}/summary` | Generate a short AI summary of a note | `200 OK` |
 | `POST` | `/notes/{note_id}/quiz` | Generate 3–5 quiz questions with answers from a note | `200 OK` |
+| `POST` | `/ask` | Answer a question using only your notes, with sources | `200 OK` |
+
 
 ### Authentication
 
-All `/notes` routes require an `X-API-Key` header matching `API_KEY` in your `.env`:
+All API routes require an `X-API-Key` header matching `API_KEY` in your `.env`:
 
 ```
 X-API-Key: <your API_KEY>
@@ -112,6 +120,40 @@ Example quiz response:
 }
 ```
 
+### Asking questions across your notes
+
+`POST /ask` answers a question using only your notes:
+
+1. When a note is created, or its content is edited, it is split into chunks of
+   about 500 characters. Each chunk is embedded with `nomic-embed-text` and
+   stored in Postgres with pgvector.
+2. The question is embedded, and the closest chunks are found by cosine
+   distance, using an HNSW index.
+3. Chunks too far from the question are dropped. If none are left, the API
+   replies that it couldn't find an answer, without calling the LLM.
+4. The remaining chunks are sent to the LLM, which answers from them only.
+
+```json
+{"question": "When was the Bastille stormed?"}
+```
+
+```json
+{
+  "answer": "The Bastille was stormed on 14 July 1789.",
+  "sources": [
+    {
+      "note_id": 1,
+      "title": "The French Revolution",
+      "excerpt": "The French Revolution began in 1789 and lasted until 1799. ..."
+    }
+  ]
+}
+```
+
+Because notes are embedded when saved, creating a note or editing its content
+requires Ollama to be running. Otherwise the request fails with `503` and
+nothing is saved. Editing only the title or author doesn't need Ollama.
+
 
 ### Errors
 
@@ -120,10 +162,10 @@ Example quiz response:
 | `401 Unauthorized` | Missing or invalid X-API-Key header |
 | `404 Not Found` | No note exists with that `note_id`, or the path doesn't exist |
 | `405 Method Not Allowed` | The path exists but doesn't support that method (e.g. `PUT /notes/1`) |
-| `422 Unprocessable Content` | Invalid body (missing field, wrong length, `null` in a `PATCH`) or a non-integer `note_id` |
+| `422 Unprocessable Content` | Invalid body (missing field, wrong length, `null` in a `PATCH`, an empty question) or a non-integer `note_id` |
 | `500 Internal Server Error` | Unexpected server error. Details are logged server-side, not returned |
 | `502 Bad Gateway` | The LLM returned an unusable response (e.g. an invalid quiz twice, or an empty reply) |
-| `503 Service Unavailable` | The LLM can't be reached (Ollama not running, model not downloaded, or timeout). Try again later |
+| `503 Service Unavailable` | The LLM can't be reached (Ollama not running, model not downloaded, or timeout). Try again later. Also returned when creating a note or editing its content, since notes are embedded on save |
 
 
 Every error uses the same format. `request_id` matches the `X-Request-ID` response header:
@@ -188,10 +230,13 @@ notes-assistant/
 │   ├── auth.py            # API key dependency
 │   ├── routers/
 │   │   ├── notes.py       # CRUD endpoints for notes
-│   │   └── ai.py          # Summary and quiz endpoints
+│   │   └── ai.py          # Summary, quiz, and ask endpoints
 │   └── services/
-│       └── llm.py         # All LLM calls: prompts, Ollama client, retries
+│       ├── llm.py         # All LLM calls: prompts, Ollama client, retries, embeddings
+│       └── rag.py         # Chunking, indexing, vector search, answering from notes
 ├── alembic/               # Migration scripts
+├── scripts/
+│   └── backfill_chunks.py # Index notes that have no chunks yet
 ├── docker-compose.yml     # Postgres (pgvector) service
 ├── requirements.txt
 ├── .env
@@ -205,5 +250,5 @@ notes-assistant/
   consistent error responses, API-key auth
 - [X] **AI endpoints** — `POST /notes/{id}/summary`, `POST /notes/{id}/quiz`
   (JSON output validated with Pydantic)
-- [ ] **RAG** — enable pgvector, chunk + embed notes on save, `POST /ask`
+- [X] **RAG** — enable pgvector, chunk + embed notes on save, `POST /ask`
 - [ ] **Polish** — pytest coverage, Docker Compose for the full app
