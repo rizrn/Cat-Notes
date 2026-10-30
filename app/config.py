@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     api_key: str
     ollama_host: str = "http://localhost:11434"
     llm_model: str = "mistral"
+    # Changing embed_model requires a migration (Vector size) and re-embedding all notes
+    embed_model: str = "nomic-embed-text"
 
 
 settings = Settings()  # pyright: ignore[reportCallIssue]

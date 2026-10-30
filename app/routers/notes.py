@@ -5,6 +5,7 @@ from app.auth import require_api_key
 from app.database import DbSession
 from app.models import Note
 from app.schemas import NoteCreate, NoteRead, NoteUpdate
+from app.services.rag import index_note
 
 router = APIRouter(
     prefix="/notes",
@@ -18,6 +19,8 @@ async def create_note(payload: NoteCreate, db: DbSession) -> Note:
     new_note = Note(**payload.model_dump())
 
     db.add(new_note)
+    await db.flush()
+    await index_note(db, new_note)
     await db.commit()
     await db.refresh(new_note)
     return new_note
@@ -59,6 +62,10 @@ async def patch_note(note_id: int, payload: NoteUpdate, db: DbSession) -> Note:
 
     for key, value in changes.items():
         setattr(note, key, value)
+
+    # Update RAG Vector if content is changed
+    if "content" in changes:
+        await index_note(db, note)
 
     await db.commit()
 

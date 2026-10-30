@@ -6,3 +6,4 @@ CLAUDE.md
 __pycache__
 .ruff_cache
 .env
+docs/learning-notes.md

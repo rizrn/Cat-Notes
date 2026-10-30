@@ -3,16 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.auth import require_api_key
 from app.database import DbSession
 from app.models import Note
-from app.schemas import QuizRead, SummaryRead
+from app.schemas import AskRead, AskRequest, QuizRead, SummaryRead
 from app.services.llm import generate_quiz, summarize
+from app.services.rag import answer_from_notes
 
-router = APIRouter(
-    prefix="/notes", tags=["ai"], dependencies=[Depends(require_api_key)]
-)
+router = APIRouter(tags=["ai"], dependencies=[Depends(require_api_key)])
 
 
 @router.post(
-    "/{note_id}/summary",
+    "/notes/{note_id}/summary",
     response_model=SummaryRead,
 )
 async def create_summary(note_id: int, db: DbSession) -> SummaryRead:
@@ -27,7 +26,7 @@ async def create_summary(note_id: int, db: DbSession) -> SummaryRead:
 
 
 @router.post(
-    "/{note_id}/quiz",
+    "/notes/{note_id}/quiz",
     response_model=QuizRead,
 )
 async def create_quiz(note_id: int, db: DbSession) -> QuizRead:
@@ -39,3 +38,8 @@ async def create_quiz(note_id: int, db: DbSession) -> QuizRead:
         )
     quiz = await generate_quiz(note.content)
     return QuizRead(note_id=note_id, questions=quiz.questions)
+
+
+@router.post("/ask", response_model=AskRead)
+async def ask(payload: AskRequest, db: DbSession) -> AskRead:
+    return await answer_from_notes(db, payload.question)
